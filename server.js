@@ -2,7 +2,7 @@ const express = require('express');
 const app = express();
 
 app.get('/', (req, res) => {
-    res.send("Hello, CI/CD with Vercel! Let's test this!");
+    res.send("Hello, CI/CD with GitHub Actions and Vercel!");
 });
 
 const port = process.env.PORT || 3000;
