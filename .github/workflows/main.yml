@@ -11,14 +11,14 @@ on:
     branches: [ "master" ]
 
 jobs:
-  build-and-test:
-    runs-on: ubuntu-22.04
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15  # Add timeout to prevent infinite waiting
     
     strategy:
       matrix:
         node-version: [18.x, 20.x, 22.x]
-        # Fail-fast ensures all matrix jobs stop if one fails
-      fail-fast: true
+      fail-fast: true  # Stop all jobs if one fails
     
     steps:
     - uses: actions/checkout@v4
@@ -31,51 +31,19 @@ jobs:
     
     - name: Install dependencies
       run: npm ci
-    
-    - name: Build
-      run: npm run build --if-present
-    
+      
     - name: Run tests
       run: npm test
 
-  preview-deployment:
-    needs: build-and-test  # This ensures tests must pass before preview deployment
-    if: github.event_name == 'pull_request' && github.ref != 'refs/heads/master'
+  deploy:
     runs-on: ubuntu-latest
+    needs: test  # This ensures all test matrix jobs must complete successfully
+    if: github.ref == 'refs/heads/master'  # Only deploy on master branch
     
     steps:
     - uses: actions/checkout@v4
     
-    - name: Use Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: 18.x
-        cache: 'npm'
-    
-    - name: Install dependencies
-      run: npm ci
-    
-    - name: Install Vercel CLI
-      run: npm install --global vercel@latest
-    
-    - name: Pull Vercel Environment Information
-      run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
-    
-    - name: Build Project Artifacts
-      run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
-    
-    - name: Deploy Project Artifacts to Vercel
-      run: vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }}
-
-  production-deployment:
-    needs: build-and-test  # This ensures tests must pass before production deployment
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-    runs-on: ubuntu-latest
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Use Node.js
+    - name: Install Node.js
       uses: actions/setup-node@v4
       with:
         node-version: 18.x
@@ -90,10 +58,5 @@ jobs:
     - name: Pull Vercel Environment Information
       run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
     
-    - name: Build Project Artifacts
-      run: |
-        rm -rf .vercel/output
-        vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
-    
-    - name: Deploy to Production
-      run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+    - name: Deploy to Vercel
+      run: vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }}
