@@ -1,88 +1,41 @@
-name: Node.js CI and Vercel Deployment
-
-env:
-  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ master ]
   pull_request:
-    branches: [ "master" ]
+    branches: [ master ]
 
 jobs:
-  build-and-test:
+  test:
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        node-version: [18.x, 20.x, 22.x]
-
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ matrix.node-version }}
-        cache: 'npm'
-    
-    - run: npm ci
-    - run: npm run build --if-present
-    - run: npm test
+    - uses: actions/checkout@v2
 
-  preview-deployment:
-    needs: build-and-test
-    if: github.event_name == 'pull_request' && github.ref != 'refs/heads/main'
-    runs-on: ubuntu-latest
-    
-    steps:
-    - uses: actions/checkout@v4
-    
     - name: Use Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v2
       with:
-        node-version: 18.x
-        cache: 'npm'
-    
-    - name: Install Vercel CLI
-      run: npm install --global vercel@latest
-    
-    - name: Pull Vercel Environment Information
-      run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
-    
-    - name: Build Project Artifacts
-      run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
-    
-    - name: Deploy Project Artifacts to Vercel
-      run: vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }}
+        node-version: '18.x'
 
-  production-deployment:
-    needs: build-and-test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run tests
+      run: npm test
+
+  deploy:
+    needs: test
     runs-on: ubuntu-latest
-    
+    if: github.ref == 'refs/heads/master'
+
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Use Node.js
-      uses: actions/setup-node@v4
+    - uses: actions/checkout@v2
+
+    - name: Deploy to Vercel
+      uses: amondnet/vercel-action@v20
       with:
-        node-version: 18.x
-        cache: 'npm'
-    
-    - name: Install Vercel CLI
-      run: npm install --global vercel@latest
-    
-    - name: Pull Vercel Environment Information
-      run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-    
-    - name: Clean Previous Builds
-      run: rm -rf .vercel/output
-    
-    - name: Rebuild for Production
-      run: |
-        vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
-    
-    - name: Deploy to Production
-      run: vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }}
+        vercel-token: ${{ secrets.VERCEL_TOKEN }}
+        vercel-org-id: ${{ secrets.ORG_ID}}
+        vercel-project-id: ${{ secrets.PROJECT_ID}}
+        vercel-args: '--prod'
